@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  authentication-service:
+    build:
+      context: ./src/AuthenticationService
+    ports:
+      - "5001:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=your-connection-string
+      - JWT_SECRET=your-jwt-secret
+
+  event-management-service:
+    build:
+      context: ./src/EventManagementService
+    ports:
+      - "5002:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=your-connection-string
+
+  notification-service:
+    build:
+      context: ./src/NotificationService
+    ports:
+      - "5003:80"
+    environment:
+      - SENDGRID_API_KEY=your-sendgrid-key
+      - RABBITMQ_CONNECTION=amqp://rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"

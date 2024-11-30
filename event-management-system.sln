@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B96794D5-1879-4C29-9DAE-1F4103CE9E9E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthenticationService", "src\AuthenticationService\AuthenticationService.csproj", "{93A8761E-52BB-413F-A55E-74918930E6C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventManagementService", "src\EventManagementService\EventManagementService.csproj", "{93982E69-DF51-40EE-BE5A-5726309CEA17}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NotificationService", "src\NotificationService\NotificationService.csproj", "{6CCE0469-F79B-423E-B019-CF6FA1E4FCA4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{93A8761E-52BB-413F-A55E-74918930E6C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93A8761E-52BB-413F-A55E-74918930E6C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93A8761E-52BB-413F-A55E-74918930E6C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93A8761E-52BB-413F-A55E-74918930E6C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93982E69-DF51-40EE-BE5A-5726309CEA17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93982E69-DF51-40EE-BE5A-5726309CEA17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93982E69-DF51-40EE-BE5A-5726309CEA17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93982E69-DF51-40EE-BE5A-5726309CEA17}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6CCE0469-F79B-423E-B019-CF6FA1E4FCA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6CCE0469-F79B-423E-B019-CF6FA1E4FCA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6CCE0469-F79B-423E-B019-CF6FA1E4FCA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6CCE0469-F79B-423E-B019-CF6FA1E4FCA4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{93A8761E-52BB-413F-A55E-74918930E6C6} = {B96794D5-1879-4C29-9DAE-1F4103CE9E9E}
+		{93982E69-DF51-40EE-BE5A-5726309CEA17} = {B96794D5-1879-4C29-9DAE-1F4103CE9E9E}
+		{6CCE0469-F79B-423E-B019-CF6FA1E4FCA4} = {B96794D5-1879-4C29-9DAE-1F4103CE9E9E}
+	EndGlobalSection
+EndGlobal
