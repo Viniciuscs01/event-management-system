@@ -5,6 +5,7 @@ using AuthenticationService.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using OtpNet;
 
 namespace AuthenticationService.Controllers
 {
@@ -51,6 +52,50 @@ namespace AuthenticationService.Controllers
 
       var token = GenerateJwtToken(user);
       return Ok(new { Token = token });
+    }
+
+    [HttpPost("mfa/enable")]
+    public async Task<IActionResult> EnableMfa([FromBody] EnableMfaRequest request)
+    {
+      if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+      var user = await _userManager.FindByIdAsync(request.UserId);
+      if (user == null)
+        return NotFound("User not found.");
+
+      var key = KeyGeneration.GenerateRandomKey(20);
+      var base32Secret = Base32Encoding.ToString(key);
+
+      user.TwoFactorEnabled = true;
+      await _userManager.SetAuthenticationTokenAsync(user, "MFA", "Secret", base32Secret);
+
+      var qrCode = $"otpauth://totp/AuthenticationService:{user.Email}?secret={base32Secret}&issuer=AuthenticationService";
+
+      return Ok(new { Secret = base32Secret, QrCode = qrCode });
+    }
+
+    [HttpPost("mfa/verify")]
+    public async Task<IActionResult> VerifyMfa([FromBody] VerifyMfaRequest request)
+    {
+      if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+      var user = await _userManager.FindByIdAsync(request.UserId);
+      if (user == null)
+        return NotFound("User not found.");
+
+      var secret = await _userManager.GetAuthenticationTokenAsync(user, "MFA", "Secret");
+      if (string.IsNullOrEmpty(secret))
+        return BadRequest("MFA is not enabled for this user.");
+
+      var totp = new Totp(Base32Encoding.ToBytes(secret));
+      var isValid = totp.VerifyTotp(request.Code, out _, VerificationWindow.RfcSpecifiedNetworkDelay);
+
+      if (!isValid)
+        return Unauthorized("Invalid MFA code.");
+
+      return Ok(new { Message = "MFA verified successfully!" });
     }
 
     private string GenerateJwtToken(IdentityUser user)
