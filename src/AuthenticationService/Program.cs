@@ -9,16 +9,15 @@ using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 var keyVaultName = builder.Configuration["KeyVaultName"];
 if (!string.IsNullOrEmpty(keyVaultName))
 {
-    var uri = new Uri($"https://{keyVaultName}.vault.azure.net/");
-    var clientId = builder.Configuration["AzureAD:ClientId"];
-    var clientSecret = builder.Configuration["AzureAD:ClientSecret"];
-    var tenantId = builder.Configuration["AzureAD:TenantId"];
-    
-    builder.Configuration.AddAzureKeyVault(uri, new ClientSecretCredential(tenantId, clientId, clientSecret));
+  var uri = new Uri($"https://{keyVaultName}.vault.azure.net/");
+  var clientId = builder.Configuration["AzureAD:ClientId"];
+  var clientSecret = builder.Configuration["AzureAD:ClientSecret"];
+  var tenantId = builder.Configuration["AzureAD:TenantId"];
+
+  builder.Configuration.AddAzureKeyVault(uri, new ClientSecretCredential(tenantId, clientId, clientSecret));
 }
 
 builder.Services.AddEndpointsApiExplorer();
@@ -31,6 +30,12 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+var jwtSecret = builder.Configuration["EMS:JWT:SECRET"];
+if (string.IsNullOrEmpty(jwtSecret))
+  throw new InvalidOperationException("EMS:JWT:SECRET is not configured.");
+
+var key = Encoding.ASCII.GetBytes(jwtSecret);
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -39,14 +44,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         ValidateIssuer = false,
         ValidateAudience = false,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(
-              Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"]))
+        IssuerSigningKey = new SymmetricSecurityKey(key)
       };
     });
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
   app.UseSwagger();

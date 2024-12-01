@@ -6,8 +6,10 @@ services:
     ports:
       - "5001:80"
     environment:
-      - ConnectionStrings__DefaultConnection=your-connection-string
-      - JWT_SECRET=your-jwt-secret
+      - KeyVaultName=${KeyVaultName}
+      - AzureAD__TenantId=${AzureAD_TenantId}
+      - AzureAD__ClientId=${AzureAD_ClientId}
+      - AzureAD__ClientSecret=${AzureAD_ClientSecret}
 
   event-management-service:
     build:
