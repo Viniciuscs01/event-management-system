@@ -4,6 +4,7 @@ using System.Text;
 using AuthenticationService.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OtpNet;
 
@@ -50,8 +51,34 @@ namespace AuthenticationService.Controllers
       if (!result.Succeeded)
         return Unauthorized("Invalid email or password.");
 
-      var token = GenerateJwtToken(user);
-      return Ok(new { Token = token });
+      if (!user.TwoFactorEnabled)
+      {
+        var key = KeyGeneration.GenerateRandomKey(20);
+        var base32Secret = Base32Encoding.ToString(key);
+
+        user.TwoFactorEnabled = true;
+        await _userManager.SetAuthenticationTokenAsync(user, "MFA", "Secret", base32Secret);
+
+        var qrCode = $"otpauth://totp/AuthenticationService:{user.Email}?secret={base32Secret}&issuer=AuthenticationService";
+
+        return Ok(new LoginResponse
+        {
+          RequiresMfa = true,
+          QrCode = qrCode,
+          Secret = base32Secret
+        });
+      }
+
+      var rawToken = Guid.NewGuid().ToString();
+      var hashedToken = BCrypt.Net.BCrypt.HashPassword(rawToken);
+
+      await _userManager.SetAuthenticationTokenAsync(user, "MFA", "MfaTokenHash", hashedToken);
+
+      return Ok(new LoginResponse
+      {
+        RequiresMfa = true,
+        Token = rawToken
+      });
     }
 
     [HttpPost("mfa/enable")]
@@ -75,27 +102,46 @@ namespace AuthenticationService.Controllers
       return Ok(new { Secret = base32Secret, QrCode = qrCode });
     }
 
-    [HttpPost("mfa/verify")]
-    public async Task<IActionResult> VerifyMfa([FromBody] VerifyMfaRequest request)
+    [HttpPost("mfa/validate")]
+    public async Task<IActionResult> ValidateMfa([FromBody] VerifyMfaRequest request)
     {
       if (!ModelState.IsValid)
         return BadRequest(ModelState);
 
-      var user = await _userManager.FindByIdAsync(request.UserId);
+      var users = await _userManager.Users.ToListAsync();
+
+      IdentityUser? user = null;
+      foreach (var u in users)
+      {
+        var storedTokenHash = await _userManager.GetAuthenticationTokenAsync(u, "MFA", "MfaTokenHash");
+        if (!string.IsNullOrEmpty(storedTokenHash) && BCrypt.Net.BCrypt.Verify(request.MfaToken, storedTokenHash))
+        {
+          user = u;
+          break;
+        }
+      }
+
       if (user == null)
-        return NotFound("User not found.");
+        return Unauthorized("Invalid or expired MFA token.");
 
       var secret = await _userManager.GetAuthenticationTokenAsync(user, "MFA", "Secret");
       if (string.IsNullOrEmpty(secret))
-        return BadRequest("MFA is not enabled for this user.");
+      {
+        return BadRequest("MFA is not configured for this user.");
+      }
 
       var totp = new Totp(Base32Encoding.ToBytes(secret));
       var isValid = totp.VerifyTotp(request.Code, out _, VerificationWindow.RfcSpecifiedNetworkDelay);
-
       if (!isValid)
+      {
         return Unauthorized("Invalid MFA code.");
+      }
 
-      return Ok(new { Message = "MFA verified successfully!" });
+      // Gerar JWT e invalidar o token temporário
+      var token = GenerateJwtToken(user);
+      await _userManager.RemoveAuthenticationTokenAsync(user, "MFA", "MfaTokenHash");
+
+      return Ok(new { Token = token });
     }
 
     private string GenerateJwtToken(IdentityUser user)
