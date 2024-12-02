@@ -6,79 +6,86 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-var keyVaultName = builder.Configuration["KeyVaultName"];
-if (!string.IsNullOrEmpty(keyVaultName))
+public partial class Program
 {
-  var uri = new Uri($"https://{keyVaultName}.vault.azure.net/");
-  var clientId = builder.Configuration["AzureAD:ClientId"];
-  var clientSecret = builder.Configuration["AzureAD:ClientSecret"];
-  var tenantId = builder.Configuration["AzureAD:TenantId"];
+  public static void Main(string[] args)
+  {
+    var builder = WebApplication.CreateBuilder(args);
 
-  builder.Configuration.AddAzureKeyVault(uri, new ClientSecretCredential(tenantId, clientId, clientSecret));
-}
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration["EMS:ConnectionStrings:DefaultConnection"]));
-
-builder.Services.AddIdentity<IdentityUser, IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
-
-var jwtSecret = builder.Configuration["EMS:JWT:SECRET"];
-if (string.IsNullOrEmpty(jwtSecret))
-  throw new InvalidOperationException("EMS:JWT:SECRET is not configured.");
-
-var key = Encoding.ASCII.GetBytes(jwtSecret);
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    // Add services to the container.
+    var keyVaultName = builder.Configuration["KeyVaultName"];
+    if (!string.IsNullOrEmpty(keyVaultName))
     {
-      options.TokenValidationParameters = new TokenValidationParameters
-      {
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key)
-      };
+      var uri = new Uri($"https://{keyVaultName}.vault.azure.net/");
+      var clientId = builder.Configuration["AzureAD:ClientId"];
+      var clientSecret = builder.Configuration["AzureAD:ClientSecret"];
+      var tenantId = builder.Configuration["AzureAD:TenantId"];
+
+      builder.Configuration.AddAzureKeyVault(uri, new ClientSecretCredential(tenantId, clientId, clientSecret));
+    }
+
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlServer(builder.Configuration["EMS:ConnectionStrings:DefaultConnection"]));
+
+    builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+        .AddEntityFrameworkStores<ApplicationDbContext>()
+        .AddDefaultTokenProviders();
+
+    var jwtSecret = builder.Configuration["EMS:JWT:SECRET"];
+    if (string.IsNullOrEmpty(jwtSecret))
+      throw new InvalidOperationException("EMS:JWT:SECRET is not configured.");
+
+    var key = Encoding.ASCII.GetBytes(jwtSecret);
+
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+          options.TokenValidationParameters = new TokenValidationParameters
+          {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+          };
+        });
+
+    builder.Services.Configure<IdentityOptions>(options =>
+    {
+      options.Password.RequireDigit = true;
+      options.Password.RequiredLength = 8;
+      options.Password.RequireNonAlphanumeric = false;
+      options.Password.RequireUppercase = true;
+      options.Password.RequireLowercase = true;
+
+      options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+      options.Lockout.MaxFailedAccessAttempts = 5;
+      options.Lockout.AllowedForNewUsers = true;
+
+      options.User.RequireUniqueEmail = true;
     });
 
-builder.Services.Configure<IdentityOptions>(options =>
-{
-  options.Password.RequireDigit = true;
-  options.Password.RequiredLength = 8;
-  options.Password.RequireNonAlphanumeric = false;
-  options.Password.RequireUppercase = true;
-  options.Password.RequireLowercase = true;
+    builder.Services.AddAuthorization();
 
-  options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-  options.Lockout.MaxFailedAccessAttempts = 5;
-  options.Lockout.AllowedForNewUsers = true;
+    builder.Services.AddControllers();
 
-  options.User.RequireUniqueEmail = true;
-});
+    var app = builder.Build();
 
-builder.Services.AddAuthorization();
+    if (app.Environment.IsDevelopment())
+    {
+      app.UseSwagger();
+      app.UseSwaggerUI();
+    }
 
-builder.Services.AddControllers();
+    app.UseHttpsRedirection();
+    app.UseAuthentication();
+    app.UseAuthorization();
 
-var app = builder.Build();
+    app.MapControllers();
 
-if (app.Environment.IsDevelopment())
-{
-  app.UseSwagger();
-  app.UseSwaggerUI();
+    app.Run();
+  }
 }
 
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
