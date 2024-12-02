@@ -397,3 +397,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 .env
+
+# Excluir resultados de testes e relatórios de cobertura
+TestResults/
+*.coverage
+*.coveragexml
+*.lcov
+coveragereport/
