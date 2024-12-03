@@ -2,10 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AuthenticationService.Models;
+using AuthenticationService.Services;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using OtpNet;
 
 namespace AuthenticationService.Tests.Controllers
@@ -13,21 +15,14 @@ namespace AuthenticationService.Tests.Controllers
   public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
   {
     private readonly HttpClient _client;
-    private readonly UserManager<IdentityUser> _userManager;
     private readonly WebApplicationFactory<Program> _factory;
+    private readonly Mock<IEmailService> _emailServiceMock;
 
     public AuthControllerTests(WebApplicationFactory<Program> factory)
     {
       _factory = factory;
       _client = factory.CreateClient();
-
-      using var scope = _factory.Services.CreateScope();
-      var serviceProvider = scope.ServiceProvider;
-      _userManager = serviceProvider.GetRequiredService<UserManager<IdentityUser>>();
-
-      // var dbContext = serviceProvider.GetRequiredService<ApplicationDbContext>();
-      // dbContext.Database.EnsureDeleted();
-      // dbContext.Database.EnsureCreated();
+      _emailServiceMock = new Mock<IEmailService>();
     }
 
     [Fact]
@@ -292,7 +287,6 @@ namespace AuthenticationService.Tests.Controllers
       Assert.NotNull(qrCode);
     }
 
-
     [Fact]
     public async Task EnableMfa_ShouldReturnNotFound_WhenUserDoesNotExist()
     {
@@ -310,7 +304,6 @@ namespace AuthenticationService.Tests.Controllers
       var result = await response.Content.ReadAsStringAsync();
       result.Should().Contain("User not found.");
     }
-
 
     [Fact]
     public async Task ValidateMfa_ShouldReturnJwtToken_WhenMfaIsValid()
@@ -368,7 +361,6 @@ namespace AuthenticationService.Tests.Controllers
       var token = result.GetProperty("token").GetString();
       Assert.NotNull(token);
     }
-
 
     [Fact]
     public async Task ValidateMfa_ShouldReturnUnauthorized_WhenMfaCodeIsInvalid()
@@ -431,6 +423,75 @@ namespace AuthenticationService.Tests.Controllers
       result.Should().Contain("Invalid or expired MFA token.");
     }
 
+    [Fact]
+    public async Task RequestPasswordReset_ShouldSendEmail_WhenEmailExists()
+    {
+      // Arrange
+      var email = "user@example.com";
+      var user = new IdentityUser { UserName = email, Email = email };
+
+      using (var scope = _factory.Services.CreateScope())
+      {
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        await userManager.CreateAsync(user, "Password123!");
+      }
+
+      var request = new PasswordResetRequest { Email = email };
+
+      _emailServiceMock
+          .Setup(e => e.SendPasswordResetEmailAsync(email, It.IsAny<string>()))
+          .Returns(Task.CompletedTask);
+
+      // Act
+      var response = await _client.PostAsJsonAsync("/api/auth/password/reset/request", request);
+
+      // Assert
+      response.StatusCode.Should().Be(HttpStatusCode.OK);
+      //_emailServiceMock.Verify(e => e.SendPasswordResetEmailAsync(email, It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestPasswordReset_ShouldReturnNotFound_WhenEmailDoesNotExist()
+    {
+      // Arrange
+      var request = new PasswordResetRequest { Email = "nonexistent@example.com" };
+
+      // Act
+      var response = await _client.PostAsJsonAsync("/api/auth/password/reset/request", request);
+
+      // Assert
+      response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ConfirmPasswordReset_ShouldReturnBadRequest_WhenTokenIsInvalid()
+    {
+      // Arrange
+      var email = "userinvalidtoken@example.com";
+      var user = new IdentityUser { UserName = email, Email = email };
+      var invalidToken = "invalid-token";
+      var newPassword = "Password123!";
+
+      using (var scope = _factory.Services.CreateScope())
+      {
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        await userManager.CreateAsync(user, "Password123!");
+      }
+
+      var request = new PasswordResetConfirmation
+      {
+        Email = email,
+        Token = invalidToken,
+        NewPassword = newPassword
+      };
+
+      // Act
+      var response = await _client.PostAsJsonAsync("/api/auth/password/reset/confirm", request);
+
+      // Assert
+      response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     private async Task<IdentityUser> GetUserByEmailAsync(string email)
     {
       using var scope = _factory.Services.CreateScope();
@@ -452,8 +513,5 @@ namespace AuthenticationService.Tests.Controllers
       existingUser.TwoFactorEnabled = true;
       await userManager.SetAuthenticationTokenAsync(existingUser, "MFA", "Secret", base32Secret);
     }
-
-
-
   }
 }

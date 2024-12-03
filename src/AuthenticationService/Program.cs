@@ -1,5 +1,6 @@
 using System.Text;
 using AuthenticationService.Data;
+using AuthenticationService.Services;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -70,6 +71,9 @@ public partial class Program
     builder.Services.AddAuthorization();
 
     builder.Services.AddControllers();
+
+    builder.Services.AddScoped<IEmailService, EmailService>();
+
 
     var app = builder.Build();
 

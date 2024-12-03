@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AuthenticationService.Models;
+using AuthenticationService.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +13,12 @@ namespace AuthenticationService.Controllers
 {
   [ApiController]
   [Route("api/[controller]")]
-  public class AuthController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, IConfiguration configuration) : ControllerBase
+  public class AuthController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, IConfiguration configuration, IEmailService emailService) : ControllerBase
   {
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly SignInManager<IdentityUser> _signInManager = signInManager;
     private readonly IConfiguration _configuration = configuration;
+    private readonly IEmailService _emailService = emailService;
 
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -143,6 +145,44 @@ namespace AuthenticationService.Controllers
 
       return Ok(new { Token = token });
     }
+
+    [HttpPost("password/reset/request")]
+    public async Task<IActionResult> RequestPasswordReset([FromBody] PasswordResetRequest request)
+    {
+      if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+      var user = await _userManager.FindByEmailAsync(request.Email);
+      if (user == null)
+        return NotFound("User not found.");
+
+      var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+      // Enviar token por e-mail
+      var callbackUrl = $"{Request.Scheme}://{Request.Host}/reset-password?token={Uri.EscapeDataString(token)}&email={Uri.EscapeDataString(request.Email)}";
+      await _emailService.SendPasswordResetEmailAsync(user.Email, callbackUrl);
+
+      return Ok(new { Message = "Password reset link has been sent to your email." });
+    }
+
+    [HttpPost("password/reset/confirm")]
+    public async Task<IActionResult> ConfirmPasswordReset([FromBody] PasswordResetConfirmation request)
+    {
+      if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+      var user = await _userManager.FindByEmailAsync(request.Email);
+      if (user == null)
+        return NotFound("User not found.");
+
+      var result = await _userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+
+      if (!result.Succeeded)
+        return BadRequest(result.Errors);
+
+      return Ok(new { Message = "Password has been reset successfully." });
+    }
+
 
     private string GenerateJwtToken(IdentityUser user)
     {
