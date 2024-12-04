@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using AuthenticationService.Middlewares;
 using AuthenticationService.Models;
 using AuthenticationService.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,12 +15,15 @@ namespace AuthenticationService.Controllers
 {
   [ApiController]
   [Route("api/[controller]")]
-  public class AuthController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, IConfiguration configuration, IEmailService emailService) : ControllerBase
+  public class AuthController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager,
+   IConfiguration configuration, IEmailService emailService, IAuditLogService auditLogService) : ControllerBase
   {
     private readonly UserManager<IdentityUser> _userManager = userManager;
     private readonly SignInManager<IdentityUser> _signInManager = signInManager;
     private readonly IConfiguration _configuration = configuration;
     private readonly IEmailService _emailService = emailService;
+    private readonly IAuditLogService _auditLogService = auditLogService;
+
 
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -82,6 +87,20 @@ namespace AuthenticationService.Controllers
         Token = rawToken
       });
     }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
+    {
+      var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+      if (string.IsNullOrEmpty(userId))
+        return Unauthorized();
+
+      await _auditLogService.LogOperationAsync(userId, "User logged out.");
+
+      return Ok(new { Message = "Successfully logged out." });
+    }
+
 
     [HttpPost("mfa/enable")]
     public async Task<IActionResult> EnableMfa([FromBody] EnableMfaRequest request)

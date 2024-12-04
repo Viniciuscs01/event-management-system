@@ -1,5 +1,6 @@
 using System.Text;
 using AuthenticationService.Data;
+using AuthenticationService.Middlewares;
 using AuthenticationService.Services;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -73,6 +74,7 @@ public partial class Program
     builder.Services.AddControllers();
 
     builder.Services.AddScoped<IEmailService, EmailService>();
+    builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 
     var app = builder.Build();
@@ -88,6 +90,8 @@ public partial class Program
     app.UseAuthorization();
 
     app.MapControllers();
+
+    app.UseMiddleware<AuditLoggingMiddleware>();
 
     app.Run();
   }

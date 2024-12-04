@@ -1,3 +1,4 @@
+using AuthenticationService.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,6 @@ namespace AuthenticationService.Data
         {
         }
 
-        // Você pode adicionar DbSets personalizados aqui, se necessário.
+        public DbSet<OperationAudit> OperationAudits { get; set; }
     }
 }
